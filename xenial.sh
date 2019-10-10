@@ -11,6 +11,7 @@ readonly STATIC_VOLUME_NAMES=( '/dev/xvdz' '/dev/nvme1n1' )
 
 readonly DATA_DIR='/data'
 readonly LOG_FILE='/var/log/ll-bootstrap.out'
+readonly INIT_SCRIPTS_DIR="${DATA_DIR}/init/scripts"
 
 INSTANCE_ID=''
 REGION=''
@@ -129,6 +130,21 @@ setup_data_dir() {
   mount $STATIC_VOLUME $DATA_DIR
 }
 
+run_init_scripts() {
+  log_info "Looking for init scripts ..."
+  # Check if scripts directory exists and is not empty
+  script_count=`ls -1 "$INIT_SCRIPTS_DIR"/*.sh 2>/dev/null | wc -l`
+  if [ $script_count != 0 ]; then
+    # Execute every script in directory
+    for f in "${INIT_SCRIPTS_DIR}"/*.sh; do
+      log_info "Executing ${f} ..."
+      bash "$f"
+    done
+  else
+    log_info "No init scripts found ..."
+  fi
+}
+
 install_packages() {
   log_info "Running apt update ..."
   apt update
@@ -164,5 +180,6 @@ set_vars
 setup_dhcp
 setup_network
 setup_data_dir
+run_init_scripts
 
 log_info 'finish'
