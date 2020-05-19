@@ -4,7 +4,7 @@ ME=$(basename "$0")
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 readonly PACKAGES_INSTALL=("jq" "awscli")
-
+readonly AWS_INSTANCE_METADATA_API_VER="2019-10-01"
 readonly NET_CONF_FILE_PATH='/etc/netplan/51-ens6.yaml'
 readonly STATIC_VOLUME_NAMES=( '/dev/xvdz' '/dev/nvme1n1' )
 
@@ -33,24 +33,21 @@ log_err() {
   exit 1
 }
 
-get_local_ip() {
-  echo $(hostname -I | awk '{print $1}')
-}
-
 set_vars() {
-  INSTANCE_ID=$(curl -s 169.254.169.254/latest/meta-data/instance-id)
-  REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)
+  local instance_identity_document=$(curl -s http://169.254.169.254/${AWS_INSTANCE_METADATA_API_VER}/dynamic/instance-identity/document)
+  local instance_mac=$(curl -s http://169.254.169.254/${AWS_INSTANCE_METADATA_API_VER}/meta-data/mac)
 
-  DYNAMIC_IP=$(get_local_ip)
+  INSTANCE_ID=$(echo $instance_identity_document | jq -r .instanceId)
+  REGION=$(echo $instance_identity_document | jq -r .region)
+
+  DYNAMIC_IP=$(echo $instance_identity_document | jq -r .privateIp)
   log_info "DYNAMIC_IP: ${DYNAMIC_IP}"
 
-  SUBNET_ID=$(aws --region $REGION ec2 describe-instances \
-    --instance-ids $INSTANCE_ID \
-    | jq -r '.Reservations[0].Instances[0].SubnetId')
+  SUBNET_ID=$(curl -s "http://169.254.169.254/${AWS_INSTANCE_METADATA_API_VER}/meta-data/network/interfaces/macs/${instance_mac}/subnet-id")
   log_info "SUBNET_ID: ${SUBNET_ID}"
   [[ -z "$SUBNET_ID" ]] && log_err "'SUBNET_ID' var could not be set"
 
-  SUBNET_CIDR_BLOCK=$(aws --region $REGION ec2 describe-subnets --subnet-ids $SUBNET_ID | jq -r '.Subnets[0].CidrBlock')
+  SUBNET_CIDR_BLOCK=$(curl -s "http://169.254.169.254/${AWS_INSTANCE_METADATA_API_VER}/meta-data/network/interfaces/macs/${instance_mac}/subnet-ipv4-cidr-block")
   log_info "SUBNET_CIDR_BLOCK: ${SUBNET_CIDR_BLOCK}"
   [[ -z "$SUBNET_CIDR_BLOCK" ]] && log_err "'SUBNET_CIDR_BLOCK' var could not be set"
 
@@ -58,19 +55,15 @@ set_vars() {
   SUBNET_GW=$(echo $SUBNET_WITHOUT_MASK | sed 's/0$/1/')
   SUBNET_MASK=$(echo $SUBNET_CIDR_BLOCK | awk -F'/' '{print $2}')
 
-  STATIC_IP=$(aws --region $REGION ec2 describe-instances \
-    --instance-ids $INSTANCE_ID \
-    | jq -r --arg local_ip "${DYNAMIC_IP}" \
-    '.Reservations[0].Instances[0].NetworkInterfaces[] | select(.PrivateIpAddress!=$local_ip).PrivateIpAddress')
-  log_info "STATIC_IP: ${STATIC_IP}"
-  [[ -z "$STATIC_IP" ]] && log_err "'STATIC_IP' var could not be set"
-
   STATIC_INTERFACE_MAC=$(aws --region $REGION ec2 describe-instances \
     --instance-ids $INSTANCE_ID \
     | jq -r --arg local_ip "${DYNAMIC_IP}" \
     '.Reservations[0].Instances[0].NetworkInterfaces[] | select(.PrivateIpAddress!=$local_ip).MacAddress')
   log_info "STATIC_INTERFACE_MAC: ${STATIC_INTERFACE_MAC}"
   [[ -z "$STATIC_INTERFACE_MAC" ]] && log_err "'STATIC_INTERFACE_MAC' var could not be set"
+
+  STATIC_IP=$(curl -s "http://169.254.169.254/${AWS_INSTANCE_METADATA_API_VER}/meta-data/network/interfaces/macs/${STATIC_INTERFACE_MAC}/local-ipv4s")
+  [[ -z "$STATIC_IP" ]] && log_err "'STATIC_IP' var could not be set"
 
   STATIC_INTERFACE_NAME="$(ip -br -o link | grep "$STATIC_INTERFACE_MAC" | awk '{print $1}')"
   log_info "STATIC_INTERFACE_NAME: ${STATIC_INTERFACE_NAME}"
