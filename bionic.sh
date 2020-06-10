@@ -157,7 +157,6 @@ while true; do
 done
 
 set_vars
-setup_dhcp
 setup_network
 setup_data_dir
 run_init_scripts
