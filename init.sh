@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-readonly URL_SCRIPTS='https://raw.githubusercontent.com/lablabs/aws-sf-userdata/master/'
+GIT_RELEASE=${1:-0.1.0}
+
+URL_SCRIPTS="https://raw.githubusercontent.com/lablabs/aws-sf-userdata/${GIT_RELEASE}/"
 
 OS="$(lsb_release -c -s)"
 OS_USER_DATA="${URL_SCRIPTS}/${OS}.sh"
