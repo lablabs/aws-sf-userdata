@@ -10,7 +10,7 @@ OS_USER_DATA="${URL_SCRIPTS}/${OS}.sh"
 http_code="$(curl $CURL_OPTIONS --write-out "%{http_code}\n" --silent --output /dev/null $OS_USER_DATA)"
 
 if [[ "$http_code" -eq 200 ]]; then
-  curl $CURL_OPTIONS -s -L $OS_USER_DATA > out
+  curl $CURL_OPTIONS -s -L $OS_USER_DATA | bash
 elif [[ "$http_code" -eq 404 ]]; then
   echo "${OS} is not supported"
   exit 1
