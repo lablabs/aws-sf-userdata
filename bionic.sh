@@ -6,7 +6,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly PACKAGES_INSTALL=("jq" "awscli")
 readonly AWS_INSTANCE_METADATA_API_VER="2019-10-01"
 readonly NET_CONF_FILE_PATH='/etc/netplan/51-ens6.yaml'
-readonly STATIC_VOLUME_NAMES=( '/dev/xvdz' '/dev/nvme1n1' )
+readonly SYSTEM_VOLUME_NAMES=( '/dev/xvdz' '/dev/nvme1n1' '/dev/nvme0n1' )
 
 readonly DATA_DIR='/data'
 readonly LOG_FILE='/var/log/ll-bootstrap.out'
@@ -21,8 +21,9 @@ SUBNET_WITHOUT_MASK=''
 SUBNET_GW=''
 SUBNET_MASK=''
 STATIC_IP=''
-STATIC_VOLUME=''
+SYSTEM_VOLUMES=''
 STATIC_INTERFACE_NAME=''
+STATIC_VOLUME=''
 
 log_info() {
   echo "$(date -I'seconds')|${ME}|info| ${1}" | tee -a $LOG_FILE
@@ -144,16 +145,26 @@ MAX_TRIES=5
 SLEEP=5
 
 while true; do
-  STATIC_VOLUME=$(ls "${STATIC_VOLUME_NAMES[@]}" 2> /dev/null)
-  if [ "$(echo $STATIC_VOLUME | wc -l)" == "1" ];then
+  SYSTEM_VOLUMES=$(ls "${SYSTEM_VOLUME_NAMES[@]}" 2> /dev/null)
+
+  for volume in $(echo $SYSTEM_VOLUMES); do
+    eval "$(blkid -o udev $volume)"
+    if ! [[ -z $ID_FS_TYPE ]]; then
+      STATIC_VOLUME=$volume
+    fi
+    ID_FS_TYPE=''
+  done
+
+  if ! [[ -z $STATIC_VOLUME ]]; then
     log_info "Static volume has been found"
     break
+  else
+    log_info "Static volume could not be found"
+    log_info "Trying again in ${SLEEP} secs ..."
+    TRY=$((TRY+1))
+    [[ $TRY -lt $MAX_TRIES ]] || log_err "Exiting ..."
+    sleep $SLEEP
   fi
-  log_info "'${STATIC_VOLUME_NAMES[@]}' could not be found"
-  log_info "Trying again in ${SLEEP} secs ..."
-  TRY=$((TRY+1))
-  [[ $TRY -lt $MAX_TRIES ]] || log_err "Exiting ..."
-  sleep $SLEEP
 done
 
 set_vars
