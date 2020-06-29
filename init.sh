@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 GIT_RELEASE=${1:-0.1.0}
-CURL_OPTIONS=$2
+CURL_OPTIONS=${2:-"--connect-timeout 10 --max-time 20 --retry 5 --retry-delay 5 --retry-max-time 300"}
 
 URL_SCRIPTS="https://raw.githubusercontent.com/lablabs/aws-sf-userdata/${GIT_RELEASE}"
 OS="$(lsb_release -c -s)"
