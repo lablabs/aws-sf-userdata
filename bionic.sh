@@ -96,6 +96,17 @@ EOF
   log_info "'${NET_CONF_FILE_PATH}' file generated"
   log_info "Running 'netplan --debug apply'"
   netplan --debug apply
+  # We need to restart the interface to fix the order of routes in the default routing table.
+  # If we don't do it, the system can't to packets received on DYNAMIC_INTERFACE in the local subnet. Instead of using DYNAMIC_INTERFACE where it received the packets, it uses STATIC_INTERFACE which causes assymetric routing.
+  # Example:
+  # Wrong order:
+  # 172.20.32.0/19 dev ens6 proto kernel scope link src 172.20.48.46
+  # 172.20.32.0/19 dev ens5 proto kernel scope link src 172.20.55.60
+  # Correct order:
+  # 172.20.32.0/19 dev ens5 proto kernel scope link src 172.20.48.46
+  # 172.20.32.0/19 dev ens6 proto kernel scope link src 172.20.55.60
+  log_info "Restarting '${STATIC_INTERFACE_NAME}' interface"
+  ip link set $STATIC_INTERFACE_NAME down && ip link set $STATIC_INTERFACE_NAME up
 }
 
 setup_data_dir() {
