@@ -106,7 +106,10 @@ EOF
   # 172.20.32.0/19 dev ens5 proto kernel scope link src 172.20.48.46
   # 172.20.32.0/19 dev ens6 proto kernel scope link src 172.20.55.60
   log_info "Restarting '${STATIC_INTERFACE_NAME}' interface"
-  ip link set $STATIC_INTERFACE_NAME down && ip link set $STATIC_INTERFACE_NAME up
+  sleep 5
+  ip link set $STATIC_INTERFACE_NAME down
+  sleep 1
+  ip link set $STATIC_INTERFACE_NAME up
 }
 
 setup_data_dir() {
