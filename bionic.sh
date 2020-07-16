@@ -163,10 +163,10 @@ while true; do
 
   for volume in $(echo $SYSTEM_VOLUMES); do
     eval "$(blkid -o udev $volume)"
-    if ! [[ -z $ID_FS_TYPE ]]; then
+    if [[ -z $ID_PART_TABLE_TYPE ]]; then
       STATIC_VOLUME=$volume
     fi
-    ID_FS_TYPE=''
+    ID_PART_TABLE_TYPE=""
   done
 
   if ! [[ -z $STATIC_VOLUME ]]; then
